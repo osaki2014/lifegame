@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>食物連鎖ゲーム - 草・シカ・オオカミ</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #f4f6ff;
+      --card: #ffffff;
+      --accent: #4f8cff;
+      --accent-soft: #e4edff;
+      --ink: #203040;
+      --danger: #ff5c7a;
+      --grid-line: #d0d7f0;
+      --grass: #c8f5a7;
+      --grass-bare: #e9ffd8;
+      --sea: #b5d8ff;
+      --waste: #f3e1b5;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "M PLUS Rounded 1c", system-ui, sans-serif;
+      background: radial-gradient(circle at top, #fdfbff 0, #f4f6ff 45%, #e9f0ff 100%);
+      color: var(--ink);
+    }
+
+    header {
+      padding: 10px 16px;
+      background: #ffffffb0;
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #dde3ff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+    }
+
+    header h1 span.icon {
+      font-size: 1.4em;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 12px auto 32px;
+      padding: 0 12px;
+      display: grid;
+      grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      padding: 12px 14px;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+    }
+
+    h2 span.small {
+      font-size: 0.8em;
+      color: #718096;
+      font-weight: normal;
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 10px;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .controls-grid label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .controls-grid span.caption {
+      font-size: 0.8rem;
+      color: #718096;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #cbd5f5;
+      font-size: 0.85rem;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px #c6d8ff;
+    }
+
+    .buttons-row {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3em;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    #stats {
+      font-size: 0.86rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: #f5f7ff;
+      border-radius: 8px;
+    }
+
+    #stats span.badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid #d0d7f0;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2em;
+    }
+
+    #mapWrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #map {
+      display: grid;
+      gap: 1px;
+      padding: 6px;
+      background: var(--grid-line);
+      border-radius: 10px;
+      max-width: 100%;
+      touch-action: none;
+    }
+
+    .cell {
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      user-select: none;
+    }
+
+    .cell.grass { background: var(--grass); }
+    .cell.grass.bare { background: var(--grass-bare); }
+    .cell.sea { background: var(--sea); }
+    .cell.waste { background: var(--waste); }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      font-size: 0.8rem;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-box {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .legend-box.grass { background: var(--grass); }
+    .legend-box.sea { background: var(--sea); }
+    .legend-box.waste { background: var(--waste); }
+
+    #help {
+      font-size: 0.82rem;
+      color: #4a5568;
+      line-height: 1.5;
+    }
+
+    #help ul {
+      padding-left: 1.2em;
+      margin: 0.4em 0 0;
+    }
+
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><span class="icon">🦌🐺</span>食物連鎖ゲーム <span style="font-size:0.8rem;color:#718096;">草 → シカ → オオカミ</span></h1>
+  </header>
+
+  <main>
+    <!-- 左側：設定パネル -->
+    <section class="card">
+      <h2>① 設定 <span class="small">（数字を変えて遊べます）</span></h2>
+      <div class="controls-grid">
+        <label>
+          マップサイズ
+          <input id="sizeInput" type="number" min="5" max="40" value="15">
+          <span class="caption">5〜40（正方形：例 15×15）</span>
+        </label>
+
+        <label>
+          草の再生ターン
+          <input id="grassRegrowInput" type="number" min="1" max="50" value="6">
+          <span class="caption">食べられてから元に戻るまで</span>
+        </label>
+
+        <label>
+          シカの寿命（ターン）
+          <input id="deerLifeInput" type="number" min="1" max="200" value="35">
+          <span class="caption">これを過ぎると老衰で死亡</span>
+        </label>
+
+        <label>
+          シカの空腹限界
+          <input id="deerStarveInput" type="number" min="1" max="50" value="7">
+          <span class="caption">草を食べずにいられるターン</span>
+        </label>
+
+        <label>
+          オオカミの寿命
+          <input id="wolfLifeInput" type="number" min="1" max="200" value="45">
+          <span class="caption">これを過ぎると老衰で死亡</span>
+        </label>
+
+        <label>
+          オオカミの空腹限界
+          <input id="wolfStarveInput" type="number" min="1" max="50" value="9">
+          <span class="caption">シカを食べずにいられるターン</span>
+        </label>
+
+        <label>
+          初期シカ数
+          <input id="initialDeerInput" type="number" min="0" value="12">
+          <span class="caption">最初に出現するシカの数</span>
+        </label>
+
+        <label>
+          初期オオカミ数
+          <input id="initialWolfInput" type="number" min="0" value="5">
+          <span class="caption">最初に出現するオオカミの数</span>
+        </label>
+      </div>
+
+      <div class="buttons-row">
+        <button id="randomMapBtn" type="button">
+          🎲 ランダム地形をつくる
+        </button>
+        <button id="resetBtn" type="button">
+          🔁 リセット
+        </button>
+      </div>
+
+      <h2 style="margin-top:12px;">② シミュレーション</h2>
+      <div class="buttons-row">
+        <button id="startStopBtn" class="primary" type="button">
+          ▶ 開始
+        </button>
+        <button id="stepBtn" type="button">
+          ⏩ 1ターン進める
+        </button>
+      </div>
+
+      <div id="stats">
+        <span class="badge">ターン: <span id="turnSpan">0</span></span>
+        <span class="badge">🌱 草ありマス: <span id="grassCountSpan">0</span></span>
+        <span class="badge">🦌 シカ: <span id="deerCountSpan">0</span></span>
+        <span class="badge">🐺 オオカミ: <span id="wolfCountSpan">0</span></span>
+      </div>
+
+      <div id="help" style="margin-top:10px;">
+        <b>ルール（ざっくり）</b>
+        <ul>
+          <li>草は「草地」の上に生え、食べられると消えます（指定ターン後に再生）。</li>
+          <li>シカは上下左右に移動し、草を食べて生き延びます。食べないと「空腹ターン」を超えて死亡。</li>
+          <li>オオカミはシカを追いかけて食べます。シカがいないとお腹がすいて「空腹ターン」を超えて死亡。</li>
+          <li>シカ・オオカミは、十分生きているときに少しの確率で子どもを産みます。</li>
+          <li>海には生き物は入れません。荒地は通れるけれど草は生えません。</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 右側：マップ表示 -->
+    <section class="card" id="mapWrapper">
+      <h2>③ マップ <span class="small">（草原に広がる生態系）</span></h2>
+      <div id="map"></div>
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-box grass"></span> 草地（🌱が生える）
+        </div>
+        <div class="legend-item">
+          <span class="legend-box sea"></span> 海（入れない）
+        </div>
+        <div class="legend-item">
+          <span class="legend-box waste"></span> 荒地（草なし）
+        </div>
+        <div class="legend-item">
+          🦌 シカ（草を食べる）
+        </div>
+        <div class="legend-item">
+          🐺 オオカミ（シカを食べる）
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ====== データ構造 ======
+    let size = 15;               // マップの一辺
+    let cells = [];              // 2次元配列 [y][x]
+    let deerList = [];           // シカのオブジェクト配列
+    let wolfList = [];           // オオカミのオブジェクト配列
+    let turn = 0;
+    let timerId = null;
+
+    const mapEl = document.getElementById('map');
+    const turnSpan = document.getElementById('turnSpan');
+    const grassCountSpan = document.getElementById('grassCountSpan');
+    const deerCountSpan = document.getElementById('deerCountSpan');
+    const wolfCountSpan = document.getElementById('wolfCountSpan');
+    const startStopBtn = document.getElementById('startStopBtn');
+    const stepBtn = document.getElementById('stepBtn');
+
+    // ====== ユーティリティ ======
+    function getInputs() {
+      size = clamp(parseInt(document.getElementById('sizeInput').value || '15', 10), 5, 40);
+      const grassRegrow = clamp(parseInt(document.getElementById('grassRegrowInput').value || '6', 10), 1, 50);
+      const deerLife = clamp(parseInt(document.getElementById('deerLifeInput').value || '35', 10), 1, 200);
+      const deerStarve = clamp(parseInt(document.getElementById('deerStarveInput').value || '7', 10), 1, 50);
+      const wolfLife = clamp(parseInt(document.getElementById('wolfLifeInput').value || '45', 10), 1, 200);
+      const wolfStarve = clamp(parseInt(document.getElementById('wolfStarveInput').value || '9', 10), 1, 50);
+      const initialDeer = Math.max(0, parseInt(document.getElementById('initialDeerInput').value || '12', 10));
+      const initialWolf = Math.max(0, parseInt(document.getElementById('initialWolfInput').value || '5', 10));
+
+      return {
+        grassRegrow,
+        deerLife,
+        deerStarve,
+        wolfLife,
+        wolfStarve,
+        initialDeer,
+        initialWolf
+      };
+    }
+
+    function clamp(v, min, max) {
+      return Math.min(max, Math.max(min, v));
+    }
+
+    function neighbors(x, y) {
+      const list = [];
+      if (x > 0) list.push({ x: x - 1, y });
+      if (x < size - 1) list.push({ x: x + 1, y });
+      if (y > 0) list.push({ x, y: y - 1 });
+      if (y < size - 1) list.push({ x, y: y + 1 });
+      return list;
+    }
+
+    function randomChoice(arr) {
+      if (!arr.length) return null;
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    // ====== マップ生成 ======
+    function createRandomMap() {
+      const { grassRegrow } = getInputs();
+      cells = [];
+      mapEl.innerHTML = '';
+      mapEl.style.gridTemplateColumns = `repeat(${size}, 26px)`;
+
+      for (let y = 0; y < size; y++) {
+        const row = [];
+        for (let x = 0; x < size; x++) {
+          // 地形をランダム決定（草多め）
+          const r = Math.random();
+          let terrain;
+          if (r < 0.65) terrain = 'grass';
+          else if (r < 0.8) terrain = 'waste';
+          else terrain = 'sea';
+
+          const div = document.createElement('div');
+          div.className = 'cell';
+          div.dataset.x = x;
+          div.dataset.y = y;
+          mapEl.appendChild(div);
+
+          const cell = {
+            x, y,
+            terrain,
+            hasGrass: terrain === 'grass',
+            grassTimer: 0,
+            grassRegrow,
+            deer: null,
+            wolf: null,
+            el: div
+          };
+          row.push(cell);
+        }
+        cells.push(row);
+      }
+      renderAllCells();
+    }
+
+    function clearAnimals() {
+      deerList = [];
+      wolfList = [];
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          cells[y][x].deer = null;
+          cells[y][x].wolf = null;
+        }
+      }
+    }
+
+    function placeInitialAnimals() {
+      clearAnimals();
+      const { initialDeer, initialWolf } = getInputs();
+
+      // シカを配置（草地か荒地のみ）
+      for (let i = 0; i < initialDeer; i++) {
+        const pos = findRandomEmptyLandCell();
+        if (!pos) break;
+        const deer = {
+          x: pos.x,
+          y: pos.y,
+          age: 0,
+          hunger: 0
+        };
+        deerList.push(deer);
+        cells[pos.y][pos.x].deer = deer;
+      }
+
+      // オオカミを配置（草地か荒地のみ）
+      for (let i = 0; i < initialWolf; i++) {
+        const pos = findRandomEmptyLandCell();
+        if (!pos) break;
+        const wolf = {
+          x: pos.x,
+          y: pos.y,
+          age: 0,
+          hunger: 0
+        };
+        wolfList.push(wolf);
+        cells[pos.y][pos.x].wolf = wolf;
+      }
+    }
+
+    function findRandomEmptyLandCell() {
+      const candidates = [];
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const c = cells[y][x];
+          if (c.terrain !== 'sea' && !c.deer && !c.wolf) {
+            candidates.push({ x, y });
+          }
+        }
+      }
+      return randomChoice(candidates);
+    }
+
+    // ====== レンダリング ======
+    function renderAllCells() {
+      let grassCount = 0;
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const cell = cells[y][x];
+          const el = cell.el;
+          el.textContent = '';
+          el.className = 'cell';
+          el.classList.add(cell.terrain);
+          if (cell.terrain === 'grass' && !cell.hasGrass) {
+            el.classList.add('bare');
+          }
+          if (cell.deer) {
+            el.textContent = '🦌';
+          }
+          if (cell.wolf) {
+            el.textContent = '🐺';
+          }
+          if (cell.terrain === 'grass' && cell.hasGrass) {
+            grassCount++;
+          }
+        }
+      }
+      grassCountSpan.textContent = grassCount;
+      deerCountSpan.textContent = deerList.length;
+      wolfCountSpan.textContent = wolfList.length;
+      turnSpan.textContent = turn;
+    }
+
+    // ====== シミュレーション1ターン ======
+    function step() {
+      if (!cells.length) return;
+      const {
+        grassRegrow,
+        deerLife,
+        deerStarve,
+        wolfLife,
+        wolfStarve
+      } = getInputs();
+
+      turn++;
+
+      // 草の再生
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const cell = cells[y][x];
+          cell.grassRegrow = grassRegrow;
+          if (cell.terrain === 'grass' && !cell.hasGrass) {
+            cell.grassTimer--;
+            if (cell.grassTimer <= 0) {
+              cell.hasGrass = true;
+              cell.grassTimer = 0;
+            }
+          }
+        }
+      }
+
+      // --- シカの行動 ---
+      const oldDeer = [...deerList];
+      const newDeer = [];
+
+      for (const deer of oldDeer) {
+        let { x, y, age, hunger } = deer;
+        age++;
+        hunger++;
+
+        // 移動候補（海以外のみ）
+        const neigh = neighbors(x, y).filter(p => cells[p.y][p.x].terrain !== 'sea');
+        let dest = randomChoice(neigh) || { x, y };
+
+        // すでにシカがいるマスは避ける（今ターンの新シカも含めて）
+        if (cells[dest.y][dest.x].deer) {
+          dest = { x, y }; // 動かない
+        }
+
+        // 元のセルからシカを消す
+        cells[y][x].deer = null;
+
+        // 新しいセルに移動
+        x = dest.x;
+        y = dest.y;
+        const targetCell = cells[y][x];
+
+        // 草を食べる
+        if (targetCell.terrain === 'grass' && targetCell.hasGrass) {
+          targetCell.hasGrass = false;
+          targetCell.grassTimer = grassRegrow;
+          hunger = 0; // お腹いっぱい
+        }
+
+        // 空腹 or 老衰で死亡
+        if (hunger > deerStarve || age > deerLife) {
+          continue;
+        }
+
+        const updatedDeer = { x, y, age, hunger };
+        newDeer.push(updatedDeer);
+        targetCell.deer = updatedDeer;
+
+        // 繁殖（少しだけ確率を持たせる）
+        if (age > Math.floor(deerLife / 3) && Math.random() < 0.12) {
+          const emptyAround = neighbors(x, y).filter(p => {
+            const c = cells[p.y][p.x];
+            return c.terrain !== 'sea' && !c.deer && !c.wolf;
+          });
+          const birthPos = randomChoice(emptyAround);
+          if (birthPos) {
+            const baby = {
+              x: birthPos.x,
+              y: birthPos.y,
+              age: 0,
+              hunger: 0
+            };
+            newDeer.push(baby);
+            cells[birthPos.y][birthPos.x].deer = baby;
+          }
+        }
+      }
+      deerList = newDeer;
+
+      // --- オオカミの行動 ---
+      const oldWolf = [...wolfList];
+      const newWolf = [];
+
+      for (const wolf of oldWolf) {
+        let { x, y, age, hunger } = wolf;
+        age++;
+        hunger++;
+
+        // まず近くにシカがいないか探す（1マス以内）
+        const neigh = neighbors(x, y);
+        const deerAround = neigh.filter(p => cells[p.y][p.x].deer);
+
+        let dest;
+        if (deerAround.length) {
+          // シカがいるマスを優先
+          dest = randomChoice(deerAround);
+        } else {
+          // 普通に移動（海以外）
+          const movable = neigh.filter(p => cells[p.y][p.x].terrain !== 'sea');
+          dest = randomChoice(movable) || { x, y };
+        }
+
+        cells[y][x].wolf = null; // 元のマスから消す
+        x = dest.x;
+        y = dest.y;
+        const targetCell = cells[y][x];
+
+        // シカがいれば捕食
+        if (targetCell.deer) {
+          // deerList からも削除
+          const victim = targetCell.deer;
+          deerList = deerList.filter(d => d !== victim);
+          targetCell.deer = null;
+          hunger = 0; // お腹いっぱい
+        }
+
+        // 空腹 or 老衰で死亡
+        if (hunger > wolfStarve || age > wolfLife) {
+          continue;
+        }
+
+        const updatedWolf = { x, y, age, hunger };
+        newWolf.push(updatedWolf);
+        targetCell.wolf = updatedWolf;
+
+        // 繁殖（少しだけ確率を持たせる）
+        if (age > Math.floor(wolfLife / 3) && Math.random() < 0.08) {
+          const emptyAround = neighbors(x, y).filter(p => {
+            const c = cells[p.y][p.x];
+            return c.terrain !== 'sea' && !c.wolf;
+          });
+          const birthPos = randomChoice(emptyAround);
+          if (birthPos) {
+            const baby = {
+              x: birthPos.x,
+              y: birthPos.y,
+              age: 0,
+              hunger: 0
+            };
+            newWolf.push(baby);
+            cells[birthPos.y][birthPos.x].wolf = baby;
+          }
+        }
+      }
+      wolfList = newWolf;
+
+      renderAllCells();
+    }
+
+    // ====== コントロール ======
+    function resetSimulation(newMap = false) {
+      const inputs = getInputs();
+      if (newMap || !cells.length || size !== cells.length) {
+        createRandomMap();
+      }
+      turn = 0;
+      placeInitialAnimals();
+      renderAllCells();
+    }
+
+    function startSimulation() {
+      if (timerId) return;
+      timerId = setInterval(() => {
+        step();
+        if (deerList.length === 0 && wolfList.length === 0) {
+          // 全滅したら止める
+          stopSimulation();
+        }
+      }, 400); // 0.4秒ごとに1ターン
+      startStopBtn.textContent = '⏸ 一時停止';
+      startStopBtn.classList.add('danger');
+      startStopBtn.classList.remove('primary');
+    }
+
+    function stopSimulation() {
+      if (timerId) {
+        clearInterval(timerId);
+        timerId = null;
+      }
+      startStopBtn.textContent = '▶ 再開';
+      startStopBtn.classList.remove('danger');
+      startStopBtn.classList.add('primary');
+    }
+
+    // ====== イベント設定 ======
+    document.getElementById('randomMapBtn').addEventListener('click', () => {
+      stopSimulation();
+      resetSimulation(true);
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      stopSimulation();
+      resetSimulation(false);
+    });
+
+    startStopBtn.addEventListener('click', () => {
+      if (timerId) {
+        stopSimulation();
+      } else {
+        startSimulation();
+      }
+    });
+
+    stepBtn.addEventListener('click', () => {
+      if (!cells.length) return;
+      stopSimulation();
+      step();
+      renderAllCells();
+    });
+
+    // 初期起動
+    createRandomMap();
+    placeInitialAnimals();
+    renderAllCells();
+  </script>
+</body>
+</html>
