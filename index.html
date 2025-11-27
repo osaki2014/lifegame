@@ -17,6 +17,9 @@
       --grass-bare: #e9ffd8;
       --sea: #b5d8ff;
       --waste: #f3e1b5;
+      --line-grass: #3cb371; /* グラフ：草 */
+      --line-deer: #ff9800;  /* グラフ：シカ */
+      --line-wolf: #8e44ad;  /* グラフ：オオカミ */
     }
 
     * { box-sizing: border-box; }
@@ -239,6 +242,47 @@
       margin: 0.4em 0 0;
     }
 
+    /* グラフ用 */
+    #graphContainer {
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    #graphTitle {
+      margin: 8px 0 4px;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+    }
+
+    #graphCanvas {
+      width: 100%;
+      height: 220px;
+      border-radius: 8px;
+      background: #f7f9ff;
+      display: block;
+    }
+
+    .graph-legend {
+      margin-top: 4px;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      font-size: 0.78rem;
+    }
+
+    .graph-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-grass { background: var(--line-grass); }
+    .dot-deer  { background: var(--line-deer); }
+    .dot-wolf  { background: var(--line-wolf); }
+
     @media (max-width: 800px) {
       main {
         grid-template-columns: minmax(0, 1fr);
@@ -343,7 +387,7 @@
       </div>
     </section>
 
-    <!-- 右側：マップ表示 -->
+    <!-- 右側：マップ表示＋グラフ -->
     <section class="card" id="mapWrapper">
       <h2>③ マップ <span class="small">（草原に広がる生態系）</span></h2>
       <div id="map"></div>
@@ -364,6 +408,16 @@
           🐺 オオカミ（シカを食べる）
         </div>
       </div>
+
+      <div id="graphContainer">
+        <div id="graphTitle">④ 個体数の変化グラフ <span class="small">（時間とともにどう変わる？）</span></div>
+        <canvas id="graphCanvas"></canvas>
+        <div class="legend graph-legend">
+          <div class="legend-item"><span class="graph-dot dot-grass"></span>草マス数</div>
+          <div class="legend-item"><span class="graph-dot dot-deer"></span>シカ数</div>
+          <div class="legend-item"><span class="graph-dot dot-wolf"></span>オオカミ数</div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -376,6 +430,13 @@
     let turn = 0;
     let timerId = null;
 
+    // 個体数の履歴（グラフ用）
+    let historyTurns = [];
+    let historyGrass = [];
+    let historyDeer = [];
+    let historyWolf = [];
+    let lastCounts = { grass: 0, deer: 0, wolf: 0 };
+
     const mapEl = document.getElementById('map');
     const turnSpan = document.getElementById('turnSpan');
     const grassCountSpan = document.getElementById('grassCountSpan');
@@ -383,6 +444,7 @@
     const wolfCountSpan = document.getElementById('wolfCountSpan');
     const startStopBtn = document.getElementById('startStopBtn');
     const stepBtn = document.getElementById('stepBtn');
+    const graphCanvas = document.getElementById('graphCanvas');
 
     // ====== ユーティリティ ======
     function getInputs() {
@@ -545,10 +607,131 @@
           }
         }
       }
+      lastCounts.grass = grassCount;
+      lastCounts.deer = deerList.length;
+      lastCounts.wolf = wolfList.length;
+
       grassCountSpan.textContent = grassCount;
       deerCountSpan.textContent = deerList.length;
       wolfCountSpan.textContent = wolfList.length;
       turnSpan.textContent = turn;
+    }
+
+    // ====== グラフ処理 ======
+    function resetHistoryAndRecord() {
+      historyTurns = [];
+      historyGrass = [];
+      historyDeer = [];
+      historyWolf = [];
+      recordAndDrawHistory();
+    }
+
+    function recordAndDrawHistory() {
+      if (!cells.length) return;
+      historyTurns.push(turn);
+      historyGrass.push(lastCounts.grass);
+      historyDeer.push(lastCounts.deer);
+      historyWolf.push(lastCounts.wolf);
+
+      // 古いデータを削る（最大200ポイント）
+      const maxPoints = 200;
+      if (historyTurns.length > maxPoints) {
+        historyTurns.shift();
+        historyGrass.shift();
+        historyDeer.shift();
+        historyWolf.shift();
+      }
+
+      drawGraph();
+    }
+
+    function drawGraph() {
+      if (!graphCanvas) return;
+      const ctx = graphCanvas.getContext('2d');
+      if (!ctx) return;
+
+      // キャンバスサイズを要素サイズに合わせる（レスポンシブ用）
+      const w = graphCanvas.clientWidth || 600;
+      const h = graphCanvas.clientHeight || 220;
+      graphCanvas.width = w;
+      graphCanvas.height = h;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // データが少なすぎる場合は何も描かない
+      if (historyTurns.length < 2) {
+        ctx.fillStyle = '#a0aec0';
+        ctx.font = '12px -apple-system, system-ui';
+        ctx.fillText('シミュレーションを進めるとグラフが表示されます', 10, h / 2);
+        return;
+      }
+
+      // 最大値を求める（草・シカ・オオカミの中で最大）
+      const maxGrass = Math.max(...historyGrass);
+      const maxDeer = Math.max(...historyDeer, 1);
+      const maxWolf = Math.max(...historyWolf, 1);
+      let maxY = Math.max(maxGrass, maxDeer, maxWolf, 1);
+      // 少し余裕を持たせる
+      maxY = Math.ceil(maxY * 1.1);
+
+      const paddingLeft = 35;
+      const paddingRight = 8;
+      const paddingTop = 10;
+      const paddingBottom = 20;
+      const plotWidth = w - paddingLeft - paddingRight;
+      const plotHeight = h - paddingTop - paddingBottom;
+
+      // 背景
+      ctx.fillStyle = '#f7f9ff';
+      ctx.fillRect(0, 0, w, h);
+
+      // グリッド線
+      ctx.strokeStyle = '#e0e6f5';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const gridLines = 4;
+      for (let i = 0; i <= gridLines; i++) {
+        const y = paddingTop + (plotHeight * i / gridLines);
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(w - paddingRight, y);
+      }
+      ctx.stroke();
+
+      // Y目盛りラベル
+      ctx.fillStyle = '#718096';
+      ctx.font = '10px -apple-system, system-ui';
+      for (let i = 0; i <= gridLines; i++) {
+        const value = Math.round(maxY * (gridLines - i) / gridLines);
+        const y = paddingTop + (plotHeight * i / gridLines) + 3;
+        ctx.fillText(String(value), 4, y);
+      }
+
+      // X軸ラベル（ターン）
+      ctx.fillText('ターン', w - 40, h - 5);
+
+      // 折れ線を描く関数
+      function plotLine(values, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        values.forEach((val, i) => {
+          const x = paddingLeft + (plotWidth * i / (values.length - 1));
+          const y = paddingTop + plotHeight * (1 - val / maxY);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+
+      plotLine(historyGrass, getComputedStyle(document.documentElement).getPropertyValue('--line-grass') || '#3cb371');
+      plotLine(historyDeer,  getComputedStyle(document.documentElement).getPropertyValue('--line-deer')  || '#ff9800');
+      plotLine(historyWolf,  getComputedStyle(document.documentElement).getPropertyValue('--line-wolf')  || '#8e44ad');
+
+      // 現在ターンの表示
+      ctx.fillStyle = '#4a5568';
+      ctx.font = '11px -apple-system, system-ui';
+      const lastTurn = historyTurns[historyTurns.length - 1];
+      ctx.fillText(`ターン: ${lastTurn}`, paddingLeft, paddingTop + 12);
     }
 
     // ====== シミュレーション1ターン ======
@@ -592,7 +775,7 @@
         const neigh = neighbors(x, y).filter(p => cells[p.y][p.x].terrain !== 'sea');
         let dest = randomChoice(neigh) || { x, y };
 
-        // すでにシカがいるマスは避ける（今ターンの新シカも含めて）
+        // すでにシカがいるマスは避ける
         if (cells[dest.y][dest.x].deer) {
           dest = { x, y }; // 動かない
         }
@@ -710,6 +893,7 @@
       wolfList = newWolf;
 
       renderAllCells();
+      recordAndDrawHistory();
     }
 
     // ====== コントロール ======
@@ -721,6 +905,7 @@
       turn = 0;
       placeInitialAnimals();
       renderAllCells();
+      resetHistoryAndRecord();
     }
 
     function startSimulation() {
@@ -770,13 +955,13 @@
       if (!cells.length) return;
       stopSimulation();
       step();
-      renderAllCells();
     });
 
     // 初期起動
     createRandomMap();
     placeInitialAnimals();
     renderAllCells();
+    resetHistoryAndRecord();
   </script>
 </body>
 </html>
